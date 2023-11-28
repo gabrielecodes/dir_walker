@@ -8,5 +8,6 @@ description = "Traverse a directory recursively preserving compatbility with the
 keywords = ["file-system", "traversal"]
 repository = "https://github.com/gabrielecodes/dir_walker"
 license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/dir_walker/latest/dir_walker/"
 
 [dependencies]
