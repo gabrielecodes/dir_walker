@@ -259,7 +259,7 @@ impl Walker {
     }
 }
 
-/// Value of an `Entry`. See the documentation of [`Entry`].
+/// Value of an `Entry`. See the documentation for [`Entry`].
 #[derive(Debug)]
 pub struct Value {
     /// The `std::fs::DirEnt` corresponding to this entry.
