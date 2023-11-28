@@ -1,7 +1,6 @@
 name: dir_walker_ci
 
 on:
-  push:
   pull_request:
 
 jobs:
@@ -10,7 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
-        channel: [stable]
+        channel: [stable, beta, nightly]
         os: [ubuntu, macos, windows]
     steps:
     - uses: actions/checkout@v2
