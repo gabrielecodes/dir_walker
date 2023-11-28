@@ -21,4 +21,46 @@ in the [`children`] field.
 
 # Examples
 
-Usage examples are in the [tests](https://github.com/gabrielecodes/dir_walker/blob/master/tests/walkdir.rs) folder
+Usage examples are in the [tests](https://github.com/gabrielecodes/dir_walker/blob/master/tests/walkdir.rs) folder.
+
+## Minimal Example
+
+```rust
+    use dir_walker::Walker;
+
+    let root = "./";
+    let walker = Walker::new(root);
+    let entries = walker.walk_dir().unwrap();
+
+    // prints a depth first representation of the root directory
+    entries.into_iter().for_each(|e| println!("{e:?}"));
+```
+
+## Using options
+
+```rust
+    use dir_walker::Walker;
+
+    let root = "./";
+    let skip = ["./target"];
+    let entries = Walker::new(root)
+        .skip_directories(&skip)
+        .skip_dotted()
+        .walk_dir()
+        .unwrap();
+
+    // Depth first representation of the root directory
+    entries.into_iter().for_each(|e| println!("{e:?}"));
+```
+
+prints:
+
+```text
+EntryIterator { dirent: DirEntry("./src"), depth: 0 }
+EntryIterator { dirent: DirEntry("./src/lib.rs"), depth: 1 }
+EntryIterator { dirent: DirEntry("./tests"), depth: 0 }
+EntryIterator { dirent: DirEntry("./tests/walkdir.rs"), depth: 1 }
+EntryIterator { dirent: DirEntry("./Cargo.lock"), depth: 0 }
+EntryIterator { dirent: DirEntry("./Cargo.toml"), depth: 0 }
+EntryIterator { dirent: DirEntry("./README.md"), depth: 0 }
+```
