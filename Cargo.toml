@@ -8,6 +8,4 @@ description = "Traverse a directory recursively preserving compatbility with the
 keywords = ["file-system", "traversal"]
 repository = "https://github.com/gabrielecodes/dir_walker"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
