@@ -7,5 +7,6 @@ categories = ["file-system"]
 description = "Traverse a directory recursively preserving compatbility with the standard library"
 keywords = ["file-system", "traversal"]
 repository = "https://github.com/gabrielecodes/dir_walker"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
