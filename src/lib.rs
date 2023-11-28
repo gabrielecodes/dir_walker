@@ -35,6 +35,7 @@ dir_walker = "0.1"
 
 # Example
 ```
+# use dir_walker::Walker;
 let entries = Walker::new("./src")
     .max_depth(2)  // optional
     .skip_dotted()  // optional
@@ -42,7 +43,7 @@ let entries = Walker::new("./src")
     .unwrap();
 
 // Depth first representation of the root directory
-entries.flatten().iter().for_each(|e| println!("{e:?}"));
+entries.into_iter().for_each(|e| println!("{e:?}"));
 
 // output:
 // (DirEntry("./src"), 0)
@@ -62,7 +63,7 @@ use std::path::PathBuf;
 /// Configure this builder and use the method [`walk_dir`] to traverse
 /// the root path. See [`Walker::new()`] for examples.
 ///
-/// [`walk_dir`]: Walker::walk_dir()
+/// [`walk_dir`]: struct.Walker.html#method.walk_dir
 pub struct Walker {
     /// root path to start the traversal
     root: PathBuf,
@@ -294,8 +295,9 @@ impl Entry {
     ///
     /// Example
     /// ```
-    /// let walker = Walker::new();
-    /// let entries = walk_dir("./").unwrap();
+    /// # use dir_walker::Walker;
+    /// let walker = Walker::new("./");
+    /// let entries = walker.walk_dir().unwrap();
     /// let found = entries.find("lib.rs");
     /// println!("Found file: {found:?}");
     /// ```
