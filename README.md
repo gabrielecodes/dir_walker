@@ -1,7 +1,7 @@
 # dir_walker
 
 [<img alt="github" src="https://img.shields.io/badge/github-gabrielecodes/dir_walker-8DBFCB?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/gabrielecodes/dir_walker)
-[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/gabrielecodes/dir_walker/ci.yml?branch=master&style=for-the-badge" height="20">](https://github.com/gabrielecodes/dir_walker/actions?query=branch%3Amaster)
+[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/gabrielecodes/dir_walker/ci.yml?branch=master&style=for-the-badge" height="20">](https://github.com/gabrielecodes/dir_walker/actions?query=branch%3Amain)
 
 This crate provides a convenient way to traverse a directory recursively.
 The objects in this crate can be used seamlessly with the standard library
