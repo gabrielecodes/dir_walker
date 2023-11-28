@@ -1,7 +1,7 @@
 # dir_walker
 
 [<img alt="github" src="https://img.shields.io/badge/github-gabrielecodes/dir_walker-8DBFCB?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/gabrielecodes/dir_walker)
-[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/gabrielecodes/dir_walker/ci.yml?branch=ma&style=for-the-badge" height="20">](https://github.com/gabrielecodes/dir_walker/actions?query=branch%3Amain)
+[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/gabrielecodes/dir_walker/ci.yml?branch=main&style=for-the-badge" height="20">](https://github.com/gabrielecodes/dir_walker/actions?query=branch%3Amain)
 [<img alt="crates.io" src="https://img.shields.io/crates/v/dir_walker.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/dir_walker)
 [<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-dir_walker-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/dir_walker/latest/dir_walker/)
 
