@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    name: Rust ${{matrix.channel}}
     runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
