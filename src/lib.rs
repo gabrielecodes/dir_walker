@@ -2,7 +2,7 @@
 This crate provides a convenient way to traverse a directory recursively.
 The objects in this crate can be used seamlessly with the standard library
 types (`std::fs::*`) since [`Entry`] is based on `std::fs::DirEntry`.
-The entry point of this crate is the [`Walker`] struct. Use the [`new`] function
+The entry point of this crate is the [`Walker`] (builder) struct. Use the [`new`] function
 passing the entry point of the traversal as input to configure the `Walker`. Several
 options can be specified:
 - use the method [`skip_dotted`] to skip dotted files
