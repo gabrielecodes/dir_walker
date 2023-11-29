@@ -2,12 +2,12 @@ use dir_walker::Walker;
 
 #[test]
 fn minimal_example() {
-    let root = "./";
+    let root = "./src";
     let walker = Walker::new(root);
     let entries = walker.walk_dir().unwrap();
 
-    // Depth first representation of the root directory
-    entries.into_iter().for_each(|e| println!("{e:?}"));
+    // print the directory tree as nested objects
+    println!("entries:\n{entries:?}");
 }
 
 #[test]
@@ -40,6 +40,17 @@ fn should_stop_at_max_depth() {
         .walk_dir()
         .unwrap();
 
-    // Depth first representation of the root directory
+    entries.into_iter().for_each(|e| println!("{e:?}"));
+}
+
+#[test]
+fn should_walk_single_file() {
+    let entries = Walker::new("./src/lib.rs")
+        .max_depth(2)
+        .skip_dotted()
+        .walk_dir()
+        .unwrap();
+
+    println!("entries:\n{entries:?}");
     entries.into_iter().for_each(|e| println!("{e:?}"));
 }

@@ -42,7 +42,11 @@ let entries = Walker::new("./src")
     .walk_dir()
     .unwrap();
 
-// Depth first representation of the root directory
+// print the directory tree as nested objects
+println!("entries:\n{entries:?}");
+
+// into_iter() iterates over a flat "list" of entries.
+// Print a depth first representation of the root directory
 entries.into_iter().for_each(|e| println!("{e:?}"));
 
 // output:
@@ -52,6 +56,10 @@ entries.into_iter().for_each(|e| println!("{e:?}"));
 // (DirEntry("./tests/walkdir.rs"), 1)
 // (DirEntry("./Cargo.lock"), 0)
 // (DirEntry("./Cargo.toml"), 0)
+```
+
+```
+
 ```
 */
 
@@ -323,9 +331,7 @@ impl Entry {
     }
 }
 
-/// Provides with an implementation of IntoIterator iterates over a flat list
-/// of entries in depth first order, directories first, files last, entering
-/// each directory
+/// Helper type that is returned when iterating over an [`Entry`].
 ///
 /// # Example
 ///
@@ -336,8 +342,10 @@ impl Entry {
 /// ```
 #[derive(Debug)]
 pub struct EntryIterator {
-    dirent: DirEntry,
-    depth: usize,
+    /// `std::fs::DirEntry` object with directory information
+    pub dirent: DirEntry,
+    /// depth of this entry in the file system
+    pub depth: usize,
 }
 
 impl EntryIterator {
@@ -346,6 +354,9 @@ impl EntryIterator {
     }
 }
 
+/// An implementation of IntoIterator iterates over a flat list
+/// of entries in depth first order, directories first, files last, entering
+/// each directory
 impl IntoIterator for Entry {
     type Item = EntryIterator;
     type IntoIter = std::vec::IntoIter<Self::Item>;
