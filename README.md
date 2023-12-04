@@ -23,7 +23,7 @@ to traverse the file system starting from the `root`.
 The result of the traversal is a recursively built `Entry` object that
 exposes its information in its `dirent` field and lists its dependencies
 in the `children` field. Alternatively a flat list of entries is available
-to the [`iterator`] of the [`Entry`] object.
+to the `iterator` of the `Entry` object.
 
 Add this crate to your project:
 
