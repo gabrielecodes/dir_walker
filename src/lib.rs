@@ -3,27 +3,30 @@ This crate provides a convenient way to traverse a directory recursively.
 The objects in this crate can be used seamlessly with the standard library
 types (`std::fs::*`) since [`Entry`] is based on `std::fs::DirEntry`.
 The entry point of this crate is the [`Walker`] (builder) struct. Use the [`new`] function
-passing the entry point of the traversal as input to configure the `Walker`. Several
-options can be specified:
+passing the entry point of the traversal as input to configure the `Walker`.
+Then several options can be specified:
 - use the method [`skip_dotted`] to skip dotted files
 or directories during traversal.
 - The method [`skip_directories`] allows to skip directories.
 - Use [`max_depth`] to stop the traversal at a fixed depth.
 
-All of the above are optional. After setting the options use [`walk_dir`]
+All of the above are optional. After setting the options use [`walk_dir()`]
 to traverse the file system starting from the `root`.
 
 The result of the traversal is a recursively built [`Entry`] object that
 exposes its information in its [`dirent`] field and lists its dependencies
 in the [`children`] field.
+Alternatively a flat list of entries is available to the [`iterator`] of the
+[`Entry`] object.
 
 [`new`]: struct.Walker.html#method.new
 [`skip_dotted`]: struct.Walker.html#method.skip_dotted
 [`skip_directories`]: struct.Walker.html#method.skip_directories
 [`max_depth`]: struct.Walker.html#method.max_depth
-[`walk_dir`]: struct.Walker.html#method.walk_dir
+[`walk_dir()`]: struct.Walker.html#method.walk_dir
 [`dirent`]: struct.Value.html#structfield.dirent
 [`children`]: struct.Value.html#structfield.children
+[`iterator`]: struct.Entry.html#method.into_iter
 
 To use this crate, add `dir_walker` as a dependency to your project's
 `Cargo.toml`:
@@ -56,10 +59,6 @@ entries.into_iter().for_each(|e| println!("{e:?}"));
 // (DirEntry("./tests/walkdir.rs"), 1)
 // (DirEntry("./Cargo.lock"), 0)
 // (DirEntry("./Cargo.toml"), 0)
-```
-
-```
-
 ```
 */
 
