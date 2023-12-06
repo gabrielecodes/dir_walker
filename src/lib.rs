@@ -126,7 +126,7 @@ impl Walker {
         self
     }
 
-    /// Skip `directories` while traversing the file system
+    /// Skip `directories` while traversing the file system.
     ///
     /// # Arguments
     ///
@@ -156,8 +156,9 @@ impl Walker {
         self
     }
 
-    /// Returns a nested structure that represents the entries inside the `root` directory
+    /// Returns a recursive structure that represents the entries inside the `root` directory
     /// and its sub-directories in a depth first order, directories first and files last.
+    /// Symbolic links are skipped.
     ///
     /// Arguments
     ///
@@ -191,7 +192,7 @@ impl Walker {
         Ok(entries)
     }
 
-    /// Returns a nested structures that represents the children of the input path
+    /// Returns a recursive structure that represents the children of the input path
     /// and its sub-directories. The structure is computed visiting directories and their
     /// sub-directories.
     fn walk_dir_inner(
@@ -216,7 +217,7 @@ impl Walker {
     }
 
     /// Returns a vector of directories and files in alphabetic order (directories first)
-    /// found in the given path
+    /// found in the given path.
     fn read_entries(
         &self,
         path: impl AsRef<std::path::Path>,
@@ -232,9 +233,9 @@ impl Walker {
         Ok(paths)
     }
 
-    /// Returns a vector of `DirEnt` representing entries found inside the input `entry`.
-    /// If `dirs_only` is true, this function returns directories, if false, it
-    /// returns files.
+    /// Returns a vector of entries (as `DirEnt`) representing entries found inside the input `entry`.
+    /// If `dirs_only` is true, this function returns directories, if false, it returns files.
+    /// Symblic links are skipped.
     fn get_entries(
         &self,
         entry: impl AsRef<std::path::Path>,
@@ -245,6 +246,7 @@ impl Walker {
             read_dir(entry)?
                 .filter_map(|e| e.ok())
                 .filter(|e| self.should_skip(e.path()))
+                .filter(|e| !e.path().is_symlink())
                 .filter(|e| {
                     if dirs_only {
                         e.path().is_dir()
@@ -266,9 +268,10 @@ impl Walker {
     }
 }
 
-/// Value of an `Entry`. See the documentation for [`Entry`].
+/// Represents a directory with its sub-directories and files. The depth
+/// field represents the depth of this entry with respect to the root path.
 #[derive(Debug)]
-pub struct Value {
+pub struct Entry {
     /// The `std::fs::DirEnt` corresponding to this entry.
     pub dirent: Option<DirEntry>,
     /// Directories and files inside this directory.
@@ -277,18 +280,13 @@ pub struct Value {
     pub depth: usize,
 }
 
-/// Represents a directory with its sub-directories and files. The depth
-/// field represents the depth of this entry with respect to the root path.
-#[derive(Debug)]
-pub struct Entry(pub Value);
-
 impl Entry {
     pub(crate) fn new(children: Vec<Entry>, dirent: Option<DirEntry>, depth: usize) -> Entry {
-        Entry(Value {
+        Entry {
             children,
             dirent,
             depth,
-        })
+        }
     }
 
     /// Find a file by its name and extension. If the file
@@ -314,7 +312,7 @@ impl Entry {
         queue.push_back(self);
 
         while let Some(mut node) = queue.pop_front() {
-            if let Some(ref dirent) = node.0.dirent {
+            if let Some(ref dirent) = node.dirent {
                 if let Some(label) = dirent.file_name().to_str() {
                     if label == name {
                         return Some(node);
@@ -322,8 +320,8 @@ impl Entry {
                 }
             }
 
-            node.0.children.reverse();
-            let children = VecDeque::from(node.0.children);
+            node.children.reverse();
+            let children = VecDeque::from(node.children);
             children.into_iter().for_each(|c| queue.push_front(c));
         }
         None
@@ -367,12 +365,12 @@ impl IntoIterator for Entry {
         queue.push_back(self);
 
         while let Some(mut node) = queue.pop_front() {
-            if let Some(dirent) = node.0.dirent {
-                flat_vec.push(EntryIterator::new(dirent, node.0.depth));
+            if let Some(dirent) = node.dirent {
+                flat_vec.push(EntryIterator::new(dirent, node.depth));
             }
 
-            node.0.children.reverse();
-            let children = VecDeque::from(node.0.children);
+            node.children.reverse();
+            let children = VecDeque::from(node.children);
             children.into_iter().for_each(|c| queue.push_front(c));
         }
 

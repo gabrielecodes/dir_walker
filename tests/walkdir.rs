@@ -2,7 +2,7 @@ use dir_walker::Walker;
 
 #[test]
 fn minimal_example() {
-    let root = "./src";
+    let root = "./target/doc";
     let walker = Walker::new(root);
     let entries = walker.walk_dir().unwrap();
 
