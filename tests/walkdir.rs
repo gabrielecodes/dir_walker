@@ -24,7 +24,7 @@ fn minimal_example() {
 #[test]
 fn should_skip_entries() {
     let root = "./";
-    let skip = ["./target"];
+    let skip = ["./target", "./.git"];
     let entries = Walker::new(root)
         .skip_directories(&skip)
         .skip_dotted()
@@ -49,7 +49,7 @@ fn should_visit_max_entries() {
     let max_entries = 8;
     let max_depth = 3;
     let root = "./";
-    let skip = ["./target"];
+    let skip = ["./target", "./.git"];
 
     let entries = Walker::new(root)
         .max_entries(max_entries)
