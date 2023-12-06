@@ -1,7 +1,20 @@
 /*!
 This crate provides a convenient way to traverse a directory recursively.
 The objects in this crate can be used seamlessly with the standard library
-types (`std::fs::*`) since [`Entry`] is based on `std::fs::DirEntry`.
+types (`std::fs::*`) since [`Entry`] is based on `std::fs::DirEntry`. The
+goal of this crate is to provide a file system representation with guaranteed
+order and serializability allowing to send the serialized object over a network.
+## Features
+- `Entry` is an in-memory recursive structure that guarantees the order of the paths
+that have been found during traversal. The order is alphabetic, directories first,
+files last. To limit memory consumption the default value for the maximum
+number of visited entries is limited to `10k` and the maximum depth of traversal to `100`.
+These limit can be changed with the methods [`max_entries`] and [`max_depth`].
+- `Entry` can be used to build objects that can be serialized e.g. as Json, due
+to it being in-memory.
+- Symbolic links are skipped.
+
+## Use
 The entry point of this crate is the [`Walker`] (builder) struct. Use the [`new`] function
 passing the entry point of the traversal as input to configure the `Walker`.
 Then several options can be specified:
@@ -9,8 +22,9 @@ Then several options can be specified:
 or directories during traversal.
 - The method [`skip_directories`] allows to skip directories.
 - Use [`max_depth`] to stop the traversal at a fixed depth.
+- Use [`max_entries`] to set the maximum number of visited entries during traversal.
 
-All of the above are optional. After setting the options use [`walk_dir()`]
+All of the above are optional. After setting the options use [`walk_dir`]
 to traverse the file system starting from the `root`.
 
 The result of the traversal is a recursively built [`Entry`] object that
@@ -23,7 +37,8 @@ Alternatively a flat list of entries is available to the [`iterator`] of the
 [`skip_dotted`]: struct.Walker.html#method.skip_dotted
 [`skip_directories`]: struct.Walker.html#method.skip_directories
 [`max_depth`]: struct.Walker.html#method.max_depth
-[`walk_dir()`]: struct.Walker.html#method.walk_dir
+[`max_entries`]: struct.Walker.html#method.max_entries
+[`walk_dir`]: struct.Walker.html#method.walk_dir
 [`dirent`]: struct.Value.html#structfield.dirent
 [`children`]: struct.Value.html#structfield.children
 [`iterator`]: struct.Entry.html#method.into_iter
@@ -78,8 +93,10 @@ pub struct Walker {
     skip_dotted: bool,
     /// A vec of paths to skip
     skip_directories: Vec<String>,
-    /// Max depth for the traversal
+    /// Maximum depth for the traversal
     max_depth: usize,
+    /// Maximum number of traversed entries
+    max_entries: usize,
 }
 
 /// A builder to traverse the file system.
@@ -105,7 +122,8 @@ impl Walker {
             root: root.as_ref().to_path_buf(),
             skip_dotted: Default::default(),
             skip_directories: Default::default(),
-            max_depth: std::usize::MAX,
+            max_entries: 10_000,
+            max_depth: 100,
         }
     }
 
@@ -156,6 +174,16 @@ impl Walker {
         self
     }
 
+    /// Limit the number of visited entries
+    ///
+    /// # Arguments
+    ///
+    /// * `max` - maximum number of entries visited during traversal
+    pub fn max_entries(mut self, max: usize) -> Walker {
+        self.max_entries = max;
+        self
+    }
+
     /// Returns a recursive structure that represents the entries inside the `root` directory
     /// and its sub-directories in a depth first order, directories first and files last.
     /// Symbolic links are skipped.
@@ -171,25 +199,32 @@ impl Walker {
     /// let entries = walker.walk_dir().unwrap();
     /// ````
     pub fn walk_dir(&self) -> Result<Entry, std::io::Error> {
-        if self.root.is_file() {
-            let parent = self
-                .root
-                .parent()
-                .expect("Error: could not get the parent directory of this file");
+        let root_entry = self.get_root_entry()?;
 
-            for entry in read_dir(parent)? {
-                let entry = entry?;
-                if entry.path() == self.root.as_path() {
-                    let entry = Entry::new(Vec::new(), Some(entry), 0);
-                    return Ok(entry);
-                }
-            }
-        }
-
-        let children = self.walk_dir_inner(&self.root, 0, self.max_depth)?;
-        let entries = Entry::new(children, None, 0);
+        let children = self.walk_dir_inner(&self.root, 0)?;
+        let entries = Entry::new(children, Some(root_entry), 0);
 
         Ok(entries)
+    }
+
+    fn get_root_entry(&self) -> Result<DirEntry, std::io::Error> {
+        let invalid_input_err =
+            |msg: &str| std::io::Error::new(std::io::ErrorKind::InvalidInput, msg);
+
+        let parent_path = self.root.parent().ok_or(invalid_input_err(
+            "Error: could not get the parent directory of the root",
+        ));
+
+        let entry = read_dir(parent_path?)?
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path() == self.root)
+            .collect::<Vec<DirEntry>>();
+
+        let root_entry = entry.into_iter().next().ok_or(invalid_input_err(
+            "Error: could not find the root directory",
+        ));
+
+        root_entry
     }
 
     /// Returns a recursive structure that represents the children of the input path
@@ -199,15 +234,14 @@ impl Walker {
         &self,
         path: impl AsRef<std::path::Path>,
         depth: usize,
-        max_depth: usize,
     ) -> Result<Vec<Entry>, std::io::Error> {
         let mut children: Vec<Entry> = Vec::new();
         let entries = self.read_entries(&path)?;
 
-        for entry in entries.into_iter() {
-            if depth <= max_depth {
+        for (count, entry) in entries.into_iter().enumerate() {
+            if depth <= self.max_depth && count <= self.max_entries {
                 children.push(Entry::new(
-                    self.walk_dir_inner(entry.path().as_path(), depth + 1, max_depth)?,
+                    self.walk_dir_inner(entry.path().as_path(), depth + 1)?,
                     Some(entry),
                     depth,
                 ));
@@ -224,8 +258,8 @@ impl Walker {
     ) -> Result<Vec<DirEntry>, std::io::Error> {
         let mut paths: Vec<DirEntry> = Vec::new();
 
-        let mut dirs = self.get_entries(&path, true).unwrap();
-        let mut files = self.get_entries(&path, false).unwrap();
+        let mut dirs = self.get_entries(&path, true)?;
+        let mut files = self.get_entries(&path, false)?;
 
         paths.append(&mut dirs);
         paths.append(&mut files);
@@ -338,16 +372,16 @@ impl Entry {
 /// entries.into_iter().for_each(|e| println!("{e:?}"));
 /// ```
 #[derive(Debug)]
-pub struct EntryIterator {
+pub struct EntryItem {
     /// `std::fs::DirEntry` object with directory information
     pub dirent: DirEntry,
     /// depth of this entry in the file system
     pub depth: usize,
 }
 
-impl EntryIterator {
-    pub fn new(dirent: DirEntry, depth: usize) -> EntryIterator {
-        EntryIterator { dirent, depth }
+impl EntryItem {
+    pub fn new(dirent: DirEntry, depth: usize) -> EntryItem {
+        EntryItem { dirent, depth }
     }
 }
 
@@ -355,18 +389,18 @@ impl EntryIterator {
 /// of entries in depth first order, directories first, files last, entering
 /// each directory
 impl IntoIterator for Entry {
-    type Item = EntryIterator;
+    type Item = EntryItem;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         let mut queue: VecDeque<Entry> = VecDeque::new();
-        let mut flat_vec: Vec<EntryIterator> = Vec::new();
+        let mut flat_vec: Vec<EntryItem> = Vec::new();
 
         queue.push_back(self);
 
         while let Some(mut node) = queue.pop_front() {
             if let Some(dirent) = node.dirent {
-                flat_vec.push(EntryIterator::new(dirent, node.depth));
+                flat_vec.push(EntryItem::new(dirent, node.depth));
             }
 
             node.children.reverse();
