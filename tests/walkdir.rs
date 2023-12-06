@@ -1,23 +1,11 @@
-use dir_walker::Walker;
+use dir_walker::{EntryItem, Walker};
 use std::fs::{read_dir, DirEntry};
-
-fn get_direntry(path: impl AsRef<std::path::Path>, root: &str) -> Result<DirEntry, std::io::Error> {
-    let entry = read_dir(root)
-        .unwrap()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path() == path.as_ref())
-        .collect::<Vec<DirEntry>>();
-
-    entry.into_iter().next().ok_or(std::io::Error::new(
-        std::io::ErrorKind::InvalidInput,
-        "Error: could not find 'path' in the root",
-    ))
-}
+use std::path::Path;
 
 #[test]
 fn minimal_example() {
     let path = "./src";
-    let walker = Walker::new(path);
+    let mut walker = Walker::new(path);
     let entries = walker.walk_dir().unwrap();
 
     // print the directory tree as nested objects
@@ -25,18 +13,18 @@ fn minimal_example() {
 
     // match "./src"
     let dirent = entries.dirent.unwrap();
-    let target_entry = get_direntry("./src", "./").unwrap();
-    assert_eq!(target_entry.path(), dirent.path());
+    let target_entry = Path::new("./src").canonicalize().unwrap();
+    assert_eq!(target_entry, dirent.path());
 
     // match "./src/lib.rs"
     let dirent = entries.children.into_iter().next().unwrap().dirent.unwrap();
-    let target_entry = get_direntry(&"./src/lib.rs", "./src").unwrap();
-    assert_eq!(target_entry.path(), dirent.path());
+    let target_entry = Path::new(&"./src/lib.rs").canonicalize().unwrap();
+    assert_eq!(target_entry, dirent.path());
 }
 
 #[test]
 fn should_skip_entries() {
-    let root = "./src";
+    let root = "./";
     let skip = ["./target"];
     let entries = Walker::new(root)
         .skip_directories(&skip)
@@ -44,24 +32,63 @@ fn should_skip_entries() {
         .walk_dir()
         .unwrap();
 
-    let target_entry = get_direntry("./target", "./").unwrap();
+    let target_entry = Path::new("./target").canonicalize().unwrap();
+    let git_entry = Path::new("./.git").canonicalize().unwrap();
+    let github_entry = Path::new("./.github").canonicalize().unwrap();
 
-    // test absence of ./target in "entries"
+    // test absence of ./target, ./.git and ./.github in "entries"
     entries
         .into_iter()
         .inspect(|e| println!("{e:?}"))
-        .for_each(|e| assert_ne!(e.dirent.path(), target_entry.path()));
+        .for_each(|e| {
+            assert_ne!(e.dirent.path(), git_entry);
+            assert_ne!(e.dirent.path(), github_entry);
+            assert_ne!(e.dirent.path(), target_entry);
+        });
+}
+
+#[test]
+fn should_visit_max_entries() {
+    let max_entries = 8;
+    let max_depth = 3;
+    let root = "./";
+    let skip = ["./target"];
+
+    let entries = Walker::new(root)
+        .max_entries(max_entries)
+        .max_depth(max_depth)
+        .skip_directories(&skip)
+        .skip_dotted()
+        .walk_dir()
+        .unwrap();
+
+    let target_entry = Path::new("./target").canonicalize().unwrap();
+    let git_entry = Path::new("./.git").canonicalize().unwrap();
+    let github_entry = Path::new("./.github").canonicalize().unwrap();
+
+    let items = entries
+        .into_iter()
+        .inspect(|e| println!("{e:?}"))
+        .map(|e| {
+            assert_ne!(e.dirent.path(), git_entry);
+            assert_ne!(e.dirent.path(), github_entry);
+            assert_ne!(e.dirent.path(), target_entry);
+            e
+        })
+        .collect::<Vec<EntryItem>>();
+
+    assert_eq!(items.len(), max_entries);
 }
 
 #[test]
 fn should_find_lib() {
-    let walker = Walker::new("./src");
+    let mut walker = Walker::new("./src");
     let entries = walker.walk_dir().unwrap();
     let found = entries.find("lib.rs").unwrap();
 
-    let lib = get_direntry("./src/lib.rs", "./src").unwrap();
+    let lib_path = Path::new("./src/lib.rs").canonicalize().unwrap();
 
-    assert_eq!(found.dirent.unwrap().path(), lib.path());
+    assert_eq!(found.dirent.unwrap().path(), lib_path);
 }
 
 #[test]
@@ -74,11 +101,13 @@ fn should_stop_at_max_depth() {
 #[test]
 fn should_walk_single_file() {
     let entries = Walker::new("./src/lib.rs").walk_dir().unwrap();
+    let entries = entries
+        .into_iter()
+        .map(|e| e.dirent.path())
+        .collect::<Vec<std::path::PathBuf>>();
 
-    let lib_entry = get_direntry("./src/lib.rs", "./src").unwrap();
+    let target_entry = Path::new("./src/lib.rs").canonicalize().unwrap();
 
-    entries.into_iter().for_each(|e| println!("{e:?}"));
-    let target_entry = get_direntry("./src/lib.rs", "./src").unwrap();
-
-    assert_eq!(lib_entry.path(), target_entry.path())
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries.into_iter().next().unwrap(), target_entry)
 }

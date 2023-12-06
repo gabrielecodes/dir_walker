@@ -51,30 +51,47 @@ To use this crate, add `dir_walker` as a dependency to your project's
 dir_walker = "0.1"
 ```
 
-# Example
+## Example: Print the nested structure
 ```
-# use dir_walker::Walker;
-let entries = Walker::new("./src")
-    .max_depth(2)  // optional
+# use dir_walker::{Walker, EntryItem};
+# use std::path::Path;
+let skip = ["./target"];
+let max_entries = 8;
+let max_depth = 3;
+let entries = Walker::new("./")
+    .max_entries(max_entries)  // optional
+    .max_depth(max_depth)  // optional
+    .skip_directories(&skip)  // optional
     .skip_dotted()  // optional
     .walk_dir()
     .unwrap();
 
 // print the directory tree as nested objects
-println!("entries:\n{entries:?}");
+println!("entries:\n{:?}", &entries);
+
+# let items = entries
+#   .into_iter()
+#   .inspect(|e| println!("{e:?}"))
+#   .collect::<Vec<EntryItem>>();
+# assert_eq!(items.len(), max_entries);
+```
+## Example: Get a flat list of entries
+```
+# use dir_walker::{Walker, EntryItem};
+# use std::path::Path;
+let max_entries = 4;
+let entries = Walker::new("./")
+    .max_entries(max_entries)
+    .walk_dir()
+    .unwrap();
 
 // into_iter() iterates over a flat "list" of entries.
 // Print a depth first representation of the root directory
-entries.into_iter().for_each(|e| println!("{e:?}"));
+let items = entries.into_iter().inspect(|e| println!("{e:?}")).collect::<Vec<EntryItem>>();
 
-// output:
-// (DirEntry("./src"), 0)
-// (DirEntry("./src/lib.rs"), 1)
-// (DirEntry("./tests"), 0)
-// (DirEntry("./tests/walkdir.rs"), 1)
-// (DirEntry("./Cargo.lock"), 0)
-// (DirEntry("./Cargo.toml"), 0)
+# assert_eq!(items.len(), max_entries);
 ```
+
 */
 
 use std::collections::VecDeque;
@@ -92,11 +109,12 @@ pub struct Walker {
     /// IF true, skip all paths starting with a dot (dot files and directories)
     skip_dotted: bool,
     /// A vec of paths to skip
-    skip_directories: Vec<String>,
+    skip_directories: Vec<std::path::PathBuf>,
     /// Maximum depth for the traversal
     max_depth: usize,
     /// Maximum number of traversed entries
     max_entries: usize,
+    _counter: usize,
 }
 
 /// A builder to traverse the file system.
@@ -114,7 +132,7 @@ impl Walker {
     /// # Examples
     /// ```
     /// # use dir_walker::Walker;
-    /// let walker = Walker::new("./");
+    /// let mut walker = Walker::new("./");
     /// let entries = walker.walk_dir().unwrap();
     /// ```
     pub fn new(root: impl AsRef<std::path::Path>) -> Walker {
@@ -124,6 +142,7 @@ impl Walker {
             skip_directories: Default::default(),
             max_entries: 10_000,
             max_depth: 100,
+            _counter: 0,
         }
     }
 
@@ -132,12 +151,15 @@ impl Walker {
     ///  # Example
     /// ```
     /// # use dir_walker::Walker;
+    /// # use std::path::Path;
     /// let root = "./";
-    /// let skip = ["./target"];
     /// let entries = Walker::new(root)
     ///     .skip_dotted()
     ///     .walk_dir()
     ///     .unwrap();
+    ///
+    /// # let p = Path::new("./.git").canonicalize().unwrap();
+    /// # entries.into_iter().for_each(|e| assert_ne!(e.dirent.path(), p))
     /// ```
     pub fn skip_dotted(mut self) -> Walker {
         self.skip_dotted = true;
@@ -149,10 +171,25 @@ impl Walker {
     /// # Arguments
     ///
     /// `directories` - array of directories to skip during traversal
+    ///
+    /// # Example
+    /// ```
+    /// # use dir_walker::Walker;
+    /// # use std::path::Path;
+    /// let root = "./";
+    /// let skip = ["./target"];
+    /// let entries = Walker::new(root)
+    ///     .skip_directories(&skip)
+    ///     .walk_dir()
+    ///     .unwrap();
+    ///
+    /// # let p = Path::new("./target").canonicalize().unwrap();
+    /// # entries.into_iter().for_each(|e| assert_ne!(e.dirent.path(), p))
+    /// ```
     pub fn skip_directories(mut self, directories: &[impl AsRef<std::path::Path>]) -> Walker {
         self.skip_directories = directories
             .iter()
-            .map(|d| d.as_ref().display().to_string())
+            .map(|d| d.as_ref().canonicalize().unwrap())
             .collect();
         self
     }
@@ -166,7 +203,7 @@ impl Walker {
     /// # Example
     /// ```
     /// # use dir_walker::Walker;
-    /// let walker = Walker::new("./").max_depth(2);
+    /// let mut walker = Walker::new("./").max_depth(2);
     /// let entries = walker.walk_dir().unwrap();
     /// ````
     pub fn max_depth(mut self, depth: usize) -> Walker {
@@ -188,63 +225,57 @@ impl Walker {
     /// and its sub-directories in a depth first order, directories first and files last.
     /// Symbolic links are skipped.
     ///
-    /// Arguments
+    /// # Arguments
     ///
     ///  `path` - root path to walk into
     ///
     /// # Example
     /// ```
     /// # use dir_walker::Walker;
-    /// let walker = Walker::new("./");
-    /// let entries = walker.walk_dir().unwrap();
-    /// ````
-    pub fn walk_dir(&self) -> Result<Entry, std::io::Error> {
-        let root_entry = self.get_root_entry()?;
+    /// # use std::path::Path;
+    /// let entries = Walker::new("./src").walk_dir().unwrap();
+    /// # let dirent = entries.dirent.unwrap();
+    /// # let p = Path::new("./src").canonicalize().unwrap();
+    /// # assert_eq!(dirent.path(), p);
+    /// ```
+    pub fn walk_dir(&mut self) -> Result<Entry, std::io::Error> {
+        let root = self.root.canonicalize()?;
+        let root_entry = get_parent_entry(&root)?;
 
-        let children = self.walk_dir_inner(&self.root, 0)?;
+        let children = self.walk_dir_inner(&root, 0)?;
         let entries = Entry::new(children, Some(root_entry), 0);
 
         Ok(entries)
-    }
-
-    fn get_root_entry(&self) -> Result<DirEntry, std::io::Error> {
-        let invalid_input_err =
-            |msg: &str| std::io::Error::new(std::io::ErrorKind::InvalidInput, msg);
-
-        let parent_path = self.root.parent().ok_or(invalid_input_err(
-            "Error: could not get the parent directory of the root",
-        ));
-
-        let entry = read_dir(parent_path?)?
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path() == self.root)
-            .collect::<Vec<DirEntry>>();
-
-        let root_entry = entry.into_iter().next().ok_or(invalid_input_err(
-            "Error: could not find the root directory",
-        ));
-
-        root_entry
     }
 
     /// Returns a recursive structure that represents the children of the input path
     /// and its sub-directories. The structure is computed visiting directories and their
     /// sub-directories.
     fn walk_dir_inner(
-        &self,
+        &mut self,
         path: impl AsRef<std::path::Path>,
         depth: usize,
     ) -> Result<Vec<Entry>, std::io::Error> {
         let mut children: Vec<Entry> = Vec::new();
         let entries = self.read_entries(&path)?;
 
-        for (count, entry) in entries.into_iter().enumerate() {
-            if depth <= self.max_depth && count <= self.max_entries {
+        for entry in entries.into_iter() {
+            self._counter += 1;
+
+            if self._counter == self.max_entries {
+                return Ok(children);
+            }
+
+            if depth <= self.max_depth {
                 children.push(Entry::new(
                     self.walk_dir_inner(entry.path().as_path(), depth + 1)?,
                     Some(entry),
                     depth,
                 ));
+
+                if self._counter >= self.max_entries {
+                    return Ok(children);
+                }
             }
         }
         Ok(children)
@@ -298,7 +329,8 @@ impl Walker {
 
     fn should_skip(&self, path: impl AsRef<std::path::Path>) -> bool {
         let path_str = path.as_ref().display().to_string();
-        !((self.skip_dotted & path_str.contains("/.")) | self.skip_directories.contains(&path_str))
+        !((self.skip_dotted & path_str.contains("/."))
+            | self.skip_directories.contains(&path.as_ref().to_path_buf()))
     }
 }
 
@@ -328,17 +360,19 @@ impl Entry {
     /// is returned. If there are multiple files with the same name in different
     /// directories, the first occurrence of the file is returned.
     ///
-    /// Arguments
+    /// # Arguments
     ///
     /// * `name` - The name of the file sought for
     ///
-    /// Example
+    /// # Example
     /// ```
     /// # use dir_walker::Walker;
-    /// let walker = Walker::new("./");
+    /// # use std::path::Path;
+    /// let mut walker = Walker::new("./src");
     /// let entries = walker.walk_dir().unwrap();
-    /// let found = entries.find("lib.rs");
-    /// println!("Found file: {found:?}");
+    /// let found = entries.find("lib.rs").unwrap();
+    /// # let p = Path::new("./src/lib.rs").canonicalize().unwrap();
+    /// assert_eq!(found.dirent.unwrap().path(), p)
     /// ```
     pub fn find(self, name: &str) -> Option<Entry> {
         let mut queue: VecDeque<Entry> = VecDeque::new();
@@ -367,9 +401,10 @@ impl Entry {
 /// # Example
 ///
 /// ```
-/// # use dir_walker::Walker;
-/// let entries = Walker::new("./").walk_dir().unwrap();
-/// entries.into_iter().for_each(|e| println!("{e:?}"));
+/// # use dir_walker::{Walker, EntryItem};
+/// let entries = Walker::new("./").max_entries(6).walk_dir().unwrap();
+/// let items = entries.into_iter().inspect(|e| println!("{e:?}")).collect::<Vec<EntryItem>>();
+/// # assert_eq!(items.len(), 6)
 /// ```
 #[derive(Debug)]
 pub struct EntryItem {
@@ -410,4 +445,23 @@ impl IntoIterator for Entry {
 
         flat_vec.into_iter()
     }
+}
+
+/// Returns the parent entry (as `DirEntry`) of self.root
+fn get_parent_entry(path: &PathBuf) -> Result<DirEntry, std::io::Error> {
+    let invalid_input_err = |msg: &str| std::io::Error::new(std::io::ErrorKind::InvalidInput, msg);
+
+    let parent_entry = path.parent().unwrap();
+
+    let entry = read_dir(parent_entry)
+        .expect("Error: could not get the parent directory of the root")
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path() == path.as_path())
+        .collect::<Vec<DirEntry>>();
+
+    let root_entry = entry.into_iter().next().ok_or(invalid_input_err(
+        "Error: could not find the root directory",
+    ));
+
+    root_entry
 }
