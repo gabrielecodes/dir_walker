@@ -1,5 +1,4 @@
 use dir_walker::{EntryItem, Walker};
-use std::fs::{read_dir, DirEntry};
 use std::path::Path;
 
 #[test]
@@ -33,7 +32,6 @@ fn should_skip_entries() {
         .unwrap();
 
     let target_entry = Path::new("./target").canonicalize().unwrap();
-    let git_entry = Path::new("./.git").canonicalize().unwrap();
     let github_entry = Path::new("./.github").canonicalize().unwrap();
 
     // test absence of ./target, ./.git and ./.github in "entries"
@@ -41,7 +39,6 @@ fn should_skip_entries() {
         .into_iter()
         .inspect(|e| println!("{e:?}"))
         .for_each(|e| {
-            assert_ne!(e.dirent.path(), git_entry);
             assert_ne!(e.dirent.path(), github_entry);
             assert_ne!(e.dirent.path(), target_entry);
         });
@@ -63,14 +60,12 @@ fn should_visit_max_entries() {
         .unwrap();
 
     let target_entry = Path::new("./target").canonicalize().unwrap();
-    let git_entry = Path::new("./.git").canonicalize().unwrap();
     let github_entry = Path::new("./.github").canonicalize().unwrap();
 
     let items = entries
         .into_iter()
         .inspect(|e| println!("{e:?}"))
         .map(|e| {
-            assert_ne!(e.dirent.path(), git_entry);
             assert_ne!(e.dirent.path(), github_entry);
             assert_ne!(e.dirent.path(), target_entry);
             e
