@@ -329,7 +329,7 @@ impl Walker {
 
     fn should_skip(&self, path: impl AsRef<std::path::Path>) -> bool {
         let path_str = path.as_ref().display().to_string();
-        !((self.skip_dotted & path_str.contains("/."))
+        !((self.skip_dotted & (path_str.contains("/.") | path_str.contains("\\.")))
             | self.skip_directories.contains(&path.as_ref().to_path_buf()))
     }
 }
