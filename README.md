@@ -7,7 +7,22 @@
 
 This crate provides a convenient way to traverse a directory recursively.
 The objects in this crate can be used seamlessly with the standard library
-types (`std::fs::*`) since `Entry` is based on `std::fs::DirEntry`.
+types (`std::fs::*`) since [`Entry`] is based on `std::fs::DirEntry`. The
+goal of this crate is to provide a file system representation with guaranteed
+order and serializability allowing to send the serialized object over a network.
+
+## Features
+
+- `Entry` is an in-memory recursive structure that guarantees the order of the paths
+that have been found during traversal. The order is alphabetic, directories first,
+files last. To limit memory consumption the default value for the maximum
+number of visited entries is limited to `10k` and the maximum depth of traversal to `100`.
+These limit can be changed with the methods `max_entries` and `max_depth`.
+- `Entry` can be used to build objects that can be serialized e.g. as Json.
+- Symbolic links are skipped.
+
+## Use
+
 The entry point of this crate is the `Walker` (builder) struct. Use the `new` function
 passing the entry point of the traversal as input to configure the `Walker`.
 Then several options can be specified:
@@ -16,14 +31,16 @@ Then several options can be specified:
 or directories during traversal.
 - The method `skip_directories` allows to skip directories.
 - Use `max_depth` to stop the traversal at a fixed depth.
+- Use `max_entries` to set the maximum number of visited entries during traversal.
 
-All of the above are optional. After setting the options use `walk_dir()`
+All of the above are optional. After setting the options use `walk_dir`
 to traverse the file system starting from the `root`.
 
 The result of the traversal is a recursively built `Entry` object that
 exposes its information in its `dirent` field and lists its dependencies
-in the `children` field. Alternatively a flat list of entries is available
-to the `iterator` of the `Entry` object.
+in the `children` field.
+Alternatively a flat list of entries is available to the `iterator` of the
+`Entry` object.
 
 Add this crate to your project:
 
