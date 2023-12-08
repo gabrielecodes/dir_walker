@@ -48,7 +48,7 @@ To use this crate, add `dir_walker` as a dependency to your project's
 
 ```toml
 [dependencies]
-dir_walker = "0.1"
+dir_walker = "0.1.9"
 ```
 
 ## Example: Print the nested structure

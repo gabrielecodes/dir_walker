@@ -7,7 +7,7 @@
 
 This crate provides a convenient way to traverse a directory recursively.
 The objects in this crate can be used seamlessly with the standard library
-types (`std::fs::*`) since [`Entry`] is based on `std::fs::DirEntry`. The
+types (`std::fs::*`) since `Entry` is based on `std::fs::DirEntry`. The
 goal of this crate is to provide a file system representation with guaranteed
 order and serializability allowing to send the serialized object over a network.
 
@@ -46,7 +46,7 @@ Add this crate to your project:
 
 ```toml
 [dependencies]
-dir_walker = "0.1"
+dir_walker = "0.1.9"
 ```
 
 ## Examples
